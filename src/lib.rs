@@ -10,7 +10,8 @@
 //! - Error handling support via `anyhow`.
 //!
 use ::log::{error, info};
-use notify::{Event, RecursiveMode, Result, Watcher};
+use anyhow::Result;
+use notify::{Event, RecursiveMode, Watcher};
 use std::{path::Path, sync::mpsc};
 
 /// Starts a watch service for the given source path.
@@ -30,7 +31,8 @@ use std::{path::Path, sync::mpsc};
 /// # Examples
 ///
 /// ```no_run
-/// use notify::{Event, Result};
+/// use anyhow::Result;
+/// use notify::Event;
 /// use std::path::Path;
 /// use watch_folder_lib::run_watch;
 ///
@@ -56,7 +58,7 @@ pub fn run_watch<F>(src_path: &Path, dst_path: &Path, callback_fn: F) -> Result<
 where
     F: Fn(&Path, &Path, Event) -> Result<()>,
 {
-    let (tx, rx) = mpsc::channel::<Result<Event>>();
+    let (tx, rx) = mpsc::channel::<Result<Event, notify::Error>>();
 
     // Use recommended_watcher() to automatically select the best implementation
     // for your platform. The `EventHandler` passed to this constructor can be a
