@@ -30,7 +30,7 @@ fn test_run_watch_detects_file_creation() -> Result<()> {
 
     // Run the watcher in a separate thread
     let _watcher_thread = thread::spawn(move || {
-        let test_callback = move |_src: &Path, _dst: &Path, event: Event| -> Result<()> {
+        let test_callback = move |_dst: &Path, event: Event| -> Result<()> {
             let mut paths = cloned_paths.lock().unwrap();
             for p in event.paths {
                 paths.push(p);

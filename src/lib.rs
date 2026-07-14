@@ -40,8 +40,7 @@ use std::{path::Path, sync::mpsc};
 ///     let src = Path::new("src_folder");
 ///     let dst = Path::new("dst_folder");
 ///
-///     let callback = |_src: &Path,
-///                     _dst: &Path,
+///     let callback = |_dst: &Path,
 ///                     event: Event|
 ///      -> Result<()> {
 ///         println!("Detected event: {:?}", event);
@@ -56,7 +55,7 @@ use std::{path::Path, sync::mpsc};
 
 pub fn run_watch<F>(src_path: &Path, dst_path: &Path, callback_fn: F) -> Result<()>
 where
-    F: Fn(&Path, &Path, Event) -> Result<()>,
+    F: Fn(&Path, Event) -> Result<()>,
 {
     let (tx, rx) = mpsc::channel::<Result<Event, notify::Error>>();
 
@@ -74,8 +73,7 @@ where
     // Block forever, printing out events as they come in
     for res in rx {
         match res {
-            Ok(event) => callback_fn(src_path, dst_path, event)?,
-            //Ok(event) => info!("WATCH EVENT: {:?}", event),
+            Ok(event) => callback_fn(dst_path, event)?,
             Err(e) => error!("watch error: {:?}", e),
         }
     }
