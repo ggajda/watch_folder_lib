@@ -4,8 +4,7 @@
 use watch_folder_lib::run_watch;
 
 // Import required external crates
-use anyhow::Result;
-use notify::Event;
+use notify::{Event, Result};
 use std::fs::File;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
