@@ -69,7 +69,7 @@ where
 
     // Add a path to be watched. All files and directories at that path and
     // below will be monitored for changes.
-    watcher.watch(src_path, RecursiveMode::Recursive)?;
+    watcher.watch(src_path, RecursiveMode::NonRecursive)?;
     // Block forever, printing out events as they come in
     for res in rx {
         match res {
