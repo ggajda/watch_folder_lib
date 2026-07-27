@@ -12,7 +12,7 @@
 use ::log::{error, info};
 use anyhow::Result;
 use notify::{Event, RecursiveMode, Watcher};
-use std::{path::Path, sync::mpsc};
+use std::{fs::create_dir_all, path::Path, sync::mpsc};
 
 /// Starts a watch service for the given source path.
 ///
@@ -57,6 +57,9 @@ pub fn run_watch<F>(src_path: &Path, dst_path: &Path, callback_fn: F) -> Result<
 where
     F: Fn(&Path, Event) -> Result<()>,
 {
+    create_dir_all(src_path)?;
+    create_dir_all(dst_path)?;
+
     let (tx, rx) = mpsc::channel::<Result<Event, notify::Error>>();
 
     // Use recommended_watcher() to automatically select the best implementation
