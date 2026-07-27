@@ -1,21 +1,15 @@
-// tests/test.rs
-
-// Import public items from our library
-use watch_folder_lib::run_watch;
-
-// Import required external crates
 use anyhow::Result;
-//use notify::Event;
+use notify::Event;
 use std::fs::File;
-use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 use tempfile::tempdir;
 
-#[test]
-fn test_run_watch_detects_file_creation() -> Result<()> {
-    // Create temporary directories
+use watch_folder_lib::run_watch;
+
+#[tokio::test]
+async fn test_run_watch_detects_file_creation() -> Result<()> {
     let tmp_src = tempdir()?;
     let tmp_dst = tempdir()?;
 
@@ -23,51 +17,57 @@ fn test_run_watch_detects_file_creation() -> Result<()> {
     let dst_path = tmp_dst.path().to_path_buf();
 
     let received_event_paths = Arc::new(Mutex::new(Vec::new()));
-    //let cloned_paths = Arc::clone(&received_event_paths);
+
+    let cloned_paths = received_event_paths.clone();
 
     let src_path_thread = src_path.clone();
     let dst_path_thread = dst_path.clone();
 
-    // Run the watcher in a separate thread
-    let _watcher_thread = thread::spawn(move || {
-        let test_callback = move |_src: &Path, _dst: &Path| -> Result<()> {
-            //let mut paths = cloned_paths.lock().unwrap();
-            // for p in event.paths {
-            //     paths.push(p);
-            // }
-            Ok(())
-        };
+    thread::spawn(move || {
+        let rt = tokio::runtime::Runtime::new().unwrap();
 
-        // Call the function from our library
-        let _ = run_watch(&src_path_thread, &dst_path_thread, test_callback);
+        rt.block_on(async move {
+            let callback = move |_src, _dst, event: Event| {
+                let cloned_paths = cloned_paths.clone();
+
+                async move {
+                    let mut paths = cloned_paths.lock().unwrap();
+
+                    for p in event.paths {
+                        paths.push(p);
+                    }
+
+                    Ok(())
+                }
+            };
+
+            let _ = run_watch(&src_path_thread, &dst_path_thread, callback);
+        });
     });
 
-    // Give the watcher a moment to start
-    thread::sleep(Duration::from_millis(100));
+    tokio::time::sleep(Duration::from_millis(300)).await;
 
-    // Perform a file write action
     let test_file_path = src_path.join("test_file.txt");
-    let _file = File::create(&test_file_path)?;
+    File::create(&test_file_path)?;
 
-    // Wait for the event to be detected (up to 1 second)
-    let mut attempts = 0;
-    while attempts < 10 {
-        thread::sleep(Duration::from_millis(100));
-        let paths = received_event_paths.lock().unwrap();
-        if !paths.is_empty() {
+    for _ in 0..20 {
+        tokio::time::sleep(Duration::from_millis(100)).await;
+
+        if received_event_paths
+            .lock()
+            .unwrap()
+            .contains(&test_file_path)
+        {
             break;
         }
-        attempts += 1;
     }
 
-    // Assertion
-    let final_paths = received_event_paths.lock().unwrap();
-    assert!(!final_paths.is_empty(), "No event was detected!");
+    let paths = received_event_paths.lock().unwrap();
+
     assert!(
-        final_paths.contains(&test_file_path),
-        "Detected paths {:?} do not contain the expected file {:?}",
-        final_paths,
-        test_file_path
+        paths.contains(&test_file_path),
+        "Detected paths: {:?}",
+        *paths
     );
 
     Ok(())

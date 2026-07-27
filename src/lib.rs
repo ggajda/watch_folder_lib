@@ -1,82 +1,46 @@
-//! # Watch Folder Lib
-//!
-//! A library for continuously monitoring changes in a source directory.
-//! It uses the `notify` crate internally to provide native and efficient
-//! filesystem event notifications (create, modify, delete events).
-//!
-//! ## Main features
-//! - Automatically selects the best watcher implementation for the current platform (Inotify, Fsevent, ReadDirectoryChangesW).
-//! - Forwards events to custom callback functions.
-//! - Error handling support via `anyhow`.
-//!
-use ::log::{error, info};
 use anyhow::Result;
+use log::{error, info};
 use notify::{Event, RecursiveMode, Watcher};
-use std::{fs::create_dir_all, path::Path, sync::mpsc};
+use std::{fs::create_dir_all, path::Path, path::PathBuf, sync::Arc, sync::mpsc};
+use tokio::sync::Semaphore;
 
-/// Starts a watch service for the given source path.
-///
-/// This function **blocks the current thread indefinitely** while listening for filesystem events.
-/// When a change is detected, it forwards the event data to the provided `watch_fn` callback.
-///
-/// # Arguments
-/// * `src_path` - The path to the directory that should be watched.
-/// * `dst_path` - The destination path (can be used inside the callback, e.g. for synchronization).
-/// * `callback_fn` - The callback function invoked for each detected event.
-///
-/// # Errors
-/// Returns an `notify::Error` if initializing the system watcher fails
-/// or if the watch service encounters a critical path access error.
-///
-/// # Examples
-///
-/// ```no_run
-/// use anyhow::Result;
-/// use notify::Event;
-/// use std::path::Path;
-/// use watch_folder_lib::run_watch;
-///
-/// fn main() -> Result<()> {
-///     let src = Path::new("src_folder");
-///     let dst = Path::new("dst_folder");
-///
-///     let callback = |_dst: &Path,
-///                     event: Event|
-///      -> Result<()> {
-///         println!("Detected event: {:?}", event);
-///         Ok(())
-///     };
-///
-///     run_watch(src, dst, callback)?;
-///
-///     Ok(())
-/// }
-/// ```
-
-pub fn run_watch<F>(src_path: &Path, dst_path: &Path, callback_fn: F) -> Result<()>
+pub fn run_watch<F, Fut>(src_path: &Path, dst_path: &Path, callback_fn: F) -> Result<()>
 where
-    F: Fn(&Path, &Path) -> Result<()>,
+    F: Fn(PathBuf, PathBuf, Event) -> Fut + Send + Sync + Clone + 'static,
+    Fut: std::future::Future<Output = Result<()>> + Send + 'static,
 {
     create_dir_all(src_path)?;
     create_dir_all(dst_path)?;
 
-    let (tx, rx) = mpsc::channel::<Result<Event, notify::Error>>();
+    let src_path = src_path.to_path_buf();
+    let dst_path = dst_path.to_path_buf();
 
-    // Use recommended_watcher() to automatically select the best implementation
-    // for your platform. The `EventHandler` passed to this constructor can be a
-    // closure, a `std::sync::mpsc::Sender`, a `crossbeam_channel::Sender`, or
-    // another type the trait is implemented for.
+    let (tx, rx) = mpsc::channel();
+
     let mut watcher = notify::recommended_watcher(tx)?;
 
     info!("Watch service is running...");
 
-    // Add a path to be watched. All files and directories at that path and
-    // below will be monitored for changes.
-    watcher.watch(src_path, RecursiveMode::NonRecursive)?;
-    // Block forever, printing out events as they come in
+    watcher.watch(&src_path, RecursiveMode::NonRecursive)?;
+
+    let semaphore = Arc::new(Semaphore::new(4));
+
     for res in rx {
         match res {
-            Ok(_) => callback_fn(src_path, dst_path)?,
+            Ok(event) => {
+                let callback = callback_fn.clone();
+                let src = src_path.clone();
+                let dst = dst_path.clone();
+                let sem = semaphore.clone();
+
+                tokio::spawn(async move {
+                    let _permit = sem.acquire_owned().await.unwrap();
+
+                    if let Err(e) = callback(src, dst, event).await {
+                        log::error!("callback error: {e}");
+                    }
+                });
+            }
             Err(e) => error!("watch error: {:?}", e),
         }
     }
