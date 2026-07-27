@@ -4,7 +4,7 @@ use notify::{Event, RecursiveMode, Watcher};
 use std::{fs::create_dir_all, path::Path, path::PathBuf, sync::Arc, sync::mpsc};
 use tokio::sync::Semaphore;
 
-pub fn run_watch<F, Fut>(src_path: &Path, dst_path: &Path, callback_fn: F) -> Result<()>
+pub async fn run_watch<F, Fut>(src_path: &Path, dst_path: &Path, callback_fn: F) -> Result<()>
 where
     F: Fn(PathBuf, PathBuf, Event) -> Fut + Send + Sync + Clone + 'static,
     Fut: std::future::Future<Output = Result<()>> + Send + 'static,
