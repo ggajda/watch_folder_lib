@@ -92,7 +92,13 @@
 //!   internal semaphore.
 //! - The callback should return quickly or perform long operations
 //!   asynchronously.
-//!
+
+use anyhow::Result;
+use log::{error, info};
+use notify::{Event, RecursiveMode, Watcher};
+use std::{fs::create_dir_all, path::Path, path::PathBuf, sync::Arc, sync::mpsc};
+use tokio::sync::Semaphore;
+
 /// Starts asynchronous monitoring of a directory.
 ///
 /// The function watches `src_path` for filesystem changes and invokes the
@@ -152,11 +158,6 @@
 /// # Ok(())
 /// # }
 /// ```
-use anyhow::Result;
-use log::{error, info};
-use notify::{Event, RecursiveMode, Watcher};
-use std::{fs::create_dir_all, path::Path, path::PathBuf, sync::Arc, sync::mpsc};
-use tokio::sync::Semaphore;
 
 pub async fn run_watch<F, Fut>(src_path: &Path, dst_path: &Path, callback_fn: F) -> Result<()>
 where
