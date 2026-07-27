@@ -41,7 +41,7 @@ async fn test_run_watch_detects_file_creation() -> Result<()> {
                 }
             };
 
-            let _ = run_watch(&src_path_thread, &dst_path_thread, callback);
+            let _ = run_watch(&src_path_thread, &dst_path_thread, callback).await;
         });
     });
 
