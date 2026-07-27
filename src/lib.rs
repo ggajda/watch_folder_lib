@@ -55,7 +55,7 @@ use std::{fs::create_dir_all, path::Path, sync::mpsc};
 
 pub fn run_watch<F>(src_path: &Path, dst_path: &Path, callback_fn: F) -> Result<()>
 where
-    F: Fn(&Path, Event) -> Result<()>,
+    F: Fn(&Path, &Path) -> Result<()>,
 {
     create_dir_all(src_path)?;
     create_dir_all(dst_path)?;
@@ -76,7 +76,7 @@ where
     // Block forever, printing out events as they come in
     for res in rx {
         match res {
-            Ok(event) => callback_fn(dst_path, event)?,
+            Ok(_) => callback_fn(src_path, dst_path)?,
             Err(e) => error!("watch error: {:?}", e),
         }
     }

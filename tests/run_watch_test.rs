@@ -5,7 +5,7 @@ use watch_folder_lib::run_watch;
 
 // Import required external crates
 use anyhow::Result;
-use notify::Event;
+//use notify::Event;
 use std::fs::File;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -23,18 +23,18 @@ fn test_run_watch_detects_file_creation() -> Result<()> {
     let dst_path = tmp_dst.path().to_path_buf();
 
     let received_event_paths = Arc::new(Mutex::new(Vec::new()));
-    let cloned_paths = Arc::clone(&received_event_paths);
+    //let cloned_paths = Arc::clone(&received_event_paths);
 
     let src_path_thread = src_path.clone();
     let dst_path_thread = dst_path.clone();
 
     // Run the watcher in a separate thread
     let _watcher_thread = thread::spawn(move || {
-        let test_callback = move |_dst: &Path, event: Event| -> Result<()> {
-            let mut paths = cloned_paths.lock().unwrap();
-            for p in event.paths {
-                paths.push(p);
-            }
+        let test_callback = move |_src: &Path, _dst: &Path| -> Result<()> {
+            //let mut paths = cloned_paths.lock().unwrap();
+            // for p in event.paths {
+            //     paths.push(p);
+            // }
             Ok(())
         };
 
