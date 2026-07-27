@@ -27,7 +27,7 @@ async fn test_run_watch_detects_file_creation() -> Result<()> {
         let rt = tokio::runtime::Runtime::new().unwrap();
 
         rt.block_on(async move {
-            let callback = move |_src, _dst, event: Event| {
+            let callback = move |_dst, event: Event| {
                 let cloned_paths = cloned_paths.clone();
 
                 async move {

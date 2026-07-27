@@ -60,7 +60,6 @@
 //! use watch_folder_lib::run_watch;
 //!
 //! async fn callback(
-//!     src: PathBuf,
 //!     dst: PathBuf,
 //!     event: Event,
 //! ) -> Result<()> {
@@ -114,7 +113,6 @@ use tokio::sync::Semaphore;
 ///
 /// The callback receives:
 ///
-/// * `PathBuf` - Source directory.
 /// * `PathBuf` - Destination directory.
 /// * `notify::Event` - Filesystem event.
 ///
@@ -139,7 +137,6 @@ use tokio::sync::Semaphore;
 /// use std::path::PathBuf;
 ///
 /// async fn callback(
-///     src: PathBuf,
 ///     dst: PathBuf,
 ///     event: Event,
 /// ) -> Result<()> {
@@ -161,7 +158,7 @@ use tokio::sync::Semaphore;
 
 pub async fn run_watch<F, Fut>(src_path: &Path, dst_path: &Path, callback_fn: F) -> Result<()>
 where
-    F: Fn(PathBuf, PathBuf, Event) -> Fut + Send + Sync + Clone + 'static,
+    F: Fn(PathBuf, Event) -> Fut + Send + Sync + Clone + 'static,
     Fut: std::future::Future<Output = Result<()>> + Send + 'static,
 {
     create_dir_all(src_path)?;
@@ -184,14 +181,13 @@ where
         match res {
             Ok(event) => {
                 let callback = callback_fn.clone();
-                let src = src_path.clone();
                 let dst = dst_path.clone();
                 let sem = semaphore.clone();
 
                 tokio::spawn(async move {
                     let _permit = sem.acquire_owned().await.unwrap();
 
-                    if let Err(e) = callback(src, dst, event).await {
+                    if let Err(e) = callback(dst, event).await {
                         log::error!("callback error: {e}");
                     }
                 });
