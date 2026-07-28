@@ -93,7 +93,6 @@
 //!   asynchronously.
 
 use anyhow::Result;
-use log::{error, info};
 use notify::{Event, RecursiveMode, Watcher};
 use std::{fs::create_dir_all, path::Path, path::PathBuf, sync::Arc, sync::mpsc};
 use tokio::sync::Semaphore;
@@ -171,8 +170,6 @@ where
 
     let mut watcher = notify::recommended_watcher(tx)?;
 
-    info!("Watch service is running...");
-
     watcher.watch(&src_path, RecursiveMode::NonRecursive)?;
 
     let semaphore = Arc::new(Semaphore::new(4));
@@ -188,11 +185,11 @@ where
                     let _permit = sem.acquire_owned().await.unwrap();
 
                     if let Err(e) = callback(dst, event).await {
-                        log::error!("callback error: {e}");
+                        panic!("callback error: {e}");
                     }
                 });
             }
-            Err(e) => error!("watch error: {:?}", e),
+            Err(e) => panic!("watch error: {:?}", e),
         }
     }
 
